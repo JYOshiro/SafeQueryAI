@@ -1,4 +1,4 @@
-namespace PrivateDoc.Api.Models;
+namespace SafeQueryAI.Api.Models;
 
 /// <summary>
 /// Represents an active temporary processing session.

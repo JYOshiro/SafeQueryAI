@@ -1,6 +1,6 @@
-using PrivateDoc.Api.Models;
+using SafeQueryAI.Api.Models;
 
-namespace PrivateDoc.Api.Services.Interfaces;
+namespace SafeQueryAI.Api.Services.Interfaces;
 
 public interface ISessionService
 {

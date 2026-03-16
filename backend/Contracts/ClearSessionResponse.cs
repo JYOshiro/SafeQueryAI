@@ -1,4 +1,4 @@
-namespace PrivateDoc.Api.Contracts;
+namespace SafeQueryAI.Api.Contracts;
 
 public record ClearSessionResponse(
     string SessionId,

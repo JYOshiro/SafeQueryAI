@@ -1,5 +1,5 @@
-using PrivateDoc.Api.Services;
-using PrivateDoc.Api.Services.Interfaces;
+using SafeQueryAI.Api.Services;
+using SafeQueryAI.Api.Services.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 

@@ -1,8 +1,8 @@
 using System.Collections.Concurrent;
-using PrivateDoc.Api.Models;
-using PrivateDoc.Api.Services.Interfaces;
+using SafeQueryAI.Api.Models;
+using SafeQueryAI.Api.Services.Interfaces;
 
-namespace PrivateDoc.Api.Services;
+namespace SafeQueryAI.Api.Services;
 
 /// <summary>
 /// Manages in-memory session state. No data is persisted to a database.

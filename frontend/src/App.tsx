@@ -134,7 +134,7 @@ export default function App() {
     return (
       <div className="app-wrapper">
         <header className="app-header">
-          <h1>🔒 PrivateDoc AI</h1>
+          <h1>🔒 SafeQueryAI</h1>
         </header>
         <div className="app-init-error">
           <p>{sessionError}</p>
@@ -148,7 +148,7 @@ export default function App() {
     return (
       <div className="app-wrapper">
         <header className="app-header">
-          <h1>🔒 PrivateDoc AI</h1>
+          <h1>🔒 SafeQueryAI</h1>
         </header>
         <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>
           <p className="loading-text">Starting session…</p>
@@ -160,7 +160,7 @@ export default function App() {
   return (
     <div className="app-wrapper">
       <header className="app-header">
-        <h1>🔒 PrivateDoc AI</h1>
+        <h1>🔒 SafeQueryAI</h1>
         <span className="header-tagline">Privacy-first document Q&amp;A</span>
       </header>
 

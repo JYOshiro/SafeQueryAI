@@ -1,4 +1,4 @@
-namespace PrivateDoc.Api.Models;
+namespace SafeQueryAI.Api.Models;
 
 /// <summary>
 /// Metadata for a file that has been uploaded to a session.

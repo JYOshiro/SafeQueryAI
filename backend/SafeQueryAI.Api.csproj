@@ -4,8 +4,8 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <RootNamespace>PrivateDoc.Api</RootNamespace>
-    <AssemblyName>PrivateDoc.Api</AssemblyName>
+    <RootNamespace>SafeQueryAI.Api</RootNamespace>
+    <AssemblyName>SafeQueryAI.Api</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
