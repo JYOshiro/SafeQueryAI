@@ -39,18 +39,20 @@ public class SessionsController : ControllerBase
     }
 
     /// <summary>
-    /// Clears all uploaded files and removes the session from memory.
+    /// Clears all uploaded files, removes the session from memory, and purges its RAG index.
     /// </summary>
     [HttpDelete("{sessionId}")]
     public IActionResult ClearSession(
         string sessionId,
-        [FromServices] IFileStorageService fileStorage)
+        [FromServices] IFileStorageService fileStorage,
+        [FromServices] IDocumentIndexingService indexing)
     {
         var session = _sessionService.GetSession(sessionId);
         if (session is null)
             return NotFound(new ErrorResponse("Session not found", $"No session exists with ID: {sessionId}"));
 
         fileStorage.DeleteSessionFiles(sessionId);
+        indexing.RemoveSessionIndex(sessionId);
         _sessionService.ClearSession(sessionId);
 
         return Ok(new ClearSessionResponse(sessionId, true, "Session cleared. All uploaded files have been removed."));

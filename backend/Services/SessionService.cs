@@ -48,4 +48,13 @@ public class SessionService : ISessionService
     {
         return _sessions.TryRemove(sessionId, out _);
     }
+
+    public IReadOnlyList<string> GetExpiredSessionIds(TimeSpan timeout)
+    {
+        var cutoff = DateTime.UtcNow - timeout;
+        return _sessions.Values
+            .Where(s => s.LastAccessedAt < cutoff)
+            .Select(s => s.SessionId)
+            .ToList();
+    }
 }

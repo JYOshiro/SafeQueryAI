@@ -1,28 +1,27 @@
-# SafeQueryAI — Phase 1 Scaffold
+# SafeQueryAI
 
-> **Portfolio project** · Privacy-first document Q&A web application
+> **Portfolio project** · Privacy-first document Q&A with local RAG
 
-A responsive web application where users upload PDFs and CSV files and ask natural-language questions about their content. Answers are grounded **only** in the files uploaded during the current temporary session — nothing is stored permanently.
+A responsive web application where users upload PDFs and CSV files and ask natural-language questions about their content. Answers are grounded **only** in the files uploaded during the current temporary session — nothing is stored permanently and no data ever leaves your machine.
 
 ---
 
 ## Problem Solved
 
-Users often need to query information from private documents without sending those documents to a cloud service. SafeQueryAI enables session-scoped document analysis: upload, ask, get answers, then clear — all locally, without a database.
+Users often need to query private documents without sending them to a cloud service. SafeQueryAI runs entirely on your local machine: upload, ask, get answers, then clear — powered by a local LLM through Ollama, with no database and no external API calls.
 
 ---
 
-## Phase 1 Scope
+## How It Works (RAG Pipeline)
 
-| ✅ Included | ❌ Out of Scope |
-|---|---|
-| Responsive React + TypeScript UI | Authentication |
-| In-memory session management | OCR / scanned PDFs |
-| PDF text extraction (text-based PDFs) | XLSX support |
-| CSV parsing and text extraction | Vector databases |
-| Basic keyword-match Q&A engine | Cloud deployment |
-| Evidence snippets in answers | LLM API integration (hook exists) |
-| Clear session + file cleanup | Multi-user persistence |
+1. **Upload** — PDF or CSV files are saved to a temporary session folder.
+2. **Extract** — Text is extracted from the file immediately after upload.
+3. **Chunk & Embed** — The extracted text is split into overlapping chunks and each chunk is embedded using the local Ollama embedding model (`nomic-embed-text`).
+4. **Ask** — When a question is submitted, it is embedded and the most similar chunks are retrieved via cosine similarity from the in-memory vector store.
+5. **Generate** — The retrieved chunks are sent as context to the local Ollama generation model (`llama3.2`), which produces a grounded answer.
+6. **Clear** — When the session ends (manually or after 60 minutes of inactivity), all files, chunks, and embeddings are deleted.
+
+If Ollama is offline when a file is uploaded, the system falls back to keyword matching so the application remains usable.
 
 ---
 
@@ -32,9 +31,114 @@ Users often need to query information from private documents without sending tho
 |---|---|
 | Frontend | React 19, TypeScript, Vite |
 | Backend | ASP.NET Core Web API, .NET 8 |
+| Local LLM runtime | [Ollama](https://ollama.com) |
+| Embedding model | `nomic-embed-text` (via Ollama) |
+| Generation model | `llama3.2` (via Ollama) |
 | PDF extraction | [PdfPig](https://github.com/UglyToad/PdfPig) |
-| State management | React `useState` / `useEffect` |
-| Storage | In-memory + local temp files |
+| Vector store | In-memory (session-scoped) |
+| File storage | Local temp folder (session-scoped) |
+
+---
+
+## Prerequisites
+
+| Tool | Version | Download |
+|---|---|---|
+| .NET SDK | 8.0+ | https://dotnet.microsoft.com/download |
+| Node.js | 18+ | https://nodejs.org |
+| Ollama | latest | https://ollama.com |
+
+---
+
+## How to Run Locally
+
+### Step 1 — Install and start Ollama
+
+Download and install Ollama from https://ollama.com, then start the local server:
+
+```bash
+ollama serve
+```
+
+Ollama runs on `http://localhost:11434` by default. Leave this terminal open.
+
+### Step 2 — Pull the required models
+
+Open a new terminal and pull both models (one-time download):
+
+```bash
+ollama pull nomic-embed-text
+ollama pull llama3.2
+```
+
+> `nomic-embed-text` is ~274 MB. `llama3.2` is ~2 GB. Both are stored locally by Ollama and never sent anywhere.
+
+### Step 3 — Start the backend
+
+```bash
+cd backend
+dotnet run
+```
+
+The API starts on `http://localhost:5000`.  
+Swagger UI is available at `http://localhost:5000/swagger`.
+
+> On first run, .NET will restore NuGet packages automatically.  
+> The backend will fail to start if `Ollama:BaseUrl` is set to a non-local address — this is intentional to prevent accidental data exfiltration.
+
+### Step 4 — Start the frontend
+
+Open a second terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The app opens at `http://localhost:5173`.
+
+> Vite proxies all `/api` requests to `http://localhost:5000`, so no CORS setup is needed.
+
+### All three components running
+
+| Component | URL |
+|---|---|
+| Frontend | http://localhost:5173 |
+| Backend API | http://localhost:5000 |
+| Swagger UI | http://localhost:5000/swagger |
+| Ollama | http://localhost:11434 |
+
+---
+
+## Configuration
+
+All backend configuration is in [backend/appsettings.json](backend/appsettings.json):
+
+```json
+{
+  "SafeQueryAI": {
+    "TempStoragePath": "TempSessions",
+    "MaxFileSizeMb": 20,
+    "SessionTimeoutMinutes": 60
+  },
+  "Ollama": {
+    "BaseUrl": "http://localhost:11434",
+    "EmbeddingModel": "nomic-embed-text",
+    "GenerationModel": "llama3.2"
+  }
+}
+```
+
+To swap models, change `EmbeddingModel` or `GenerationModel` to any model you have pulled with `ollama pull`. For example:
+
+```bash
+ollama pull mistral
+```
+
+Then set `"GenerationModel": "mistral"` in `appsettings.json` and restart the backend.
+
+> **Privacy guardrail:** `Ollama:BaseUrl` must be a loopback address (`localhost` / `127.0.0.1`). The application will refuse to start if a remote URL is configured.
 
 ---
 
@@ -42,54 +146,32 @@ Users often need to query information from private documents without sending tho
 
 ```
 SafeQueryAI/
-├── frontend/                  # React + TypeScript + Vite
+├── frontend/                      # React + TypeScript + Vite
 │   ├── src/
-│   │   ├── components/        # UI components
-│   │   ├── services/api.ts    # API client layer
-│   │   ├── types/api.ts       # Shared TypeScript types
-│   │   ├── styles/app.css     # Application styles
-│   │   ├── App.tsx            # App shell + state management
-│   │   └── main.tsx           # Entry point
-│   ├── vite.config.ts
-│   └── package.json
+│   │   ├── components/            # UI components
+│   │   ├── services/api.ts        # API client layer
+│   │   ├── types/api.ts           # Shared TypeScript types
+│   │   ├── App.tsx                # App shell + state management
+│   │   └── main.tsx               # Entry point
+│   └── vite.config.ts             # Dev server + API proxy
 │
-└── backend/                   # ASP.NET Core Web API
-    ├── Controllers/           # HTTP endpoints
-    ├── Services/              # Business logic
-    │   └── Interfaces/        # Service contracts
-    ├── Models/                # Internal models
-    ├── Contracts/             # API request/response DTOs
-    ├── Program.cs
-    └── SafeQueryAI.Api.csproj
+└── backend/                       # ASP.NET Core Web API
+    ├── Controllers/               # HTTP endpoints
+    ├── Services/
+    │   ├── OllamaService.cs       # Embedding + generation via local Ollama
+    │   ├── DocumentIndexingService.cs  # Chunking → embed → vector store
+    │   ├── VectorStoreService.cs  # In-memory cosine similarity search
+    │   ├── QuestionAnsweringService.cs # RAG pipeline + keyword fallback
+    │   ├── SessionService.cs      # In-memory session state
+    │   ├── SessionExpiryService.cs     # Background expiry + cleanup
+    │   ├── FileStorageService.cs  # Temp file save/delete
+    │   ├── TextExtractionService.cs    # PDF + CSV text extraction
+    │   └── Interfaces/            # Service contracts
+    ├── Models/                    # Internal models (DocumentChunk, SessionInfo, etc.)
+    ├── Contracts/                 # API request/response DTOs
+    ├── appsettings.json
+    └── Program.cs
 ```
-
----
-
-## How to Run Locally
-
-### Prerequisites
-- [.NET 8 SDK](https://dotnet.microsoft.com/download)
-- [Node.js 18+](https://nodejs.org/) and npm
-
-### 1. Start the Backend
-
-```bash
-cd backend
-dotnet run
-# API runs on http://localhost:5000
-# Swagger UI: http://localhost:5000/swagger
-```
-
-### 2. Start the Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-# App runs on http://localhost:5173
-```
-
-Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ---
 
@@ -98,69 +180,43 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 | Method | Path | Description |
 |---|---|---|
 | `POST` | `/api/sessions` | Create a new session |
-| `GET` | `/api/sessions/{id}` | Get session info |
-| `DELETE` | `/api/sessions/{id}` | Clear session + delete files |
-| `POST` | `/api/sessions/{id}/files` | Upload a PDF or CSV file |
-| `GET` | `/api/sessions/{id}/files` | List uploaded files |
-| `POST` | `/api/sessions/{id}/questions` | Ask a question |
-| `GET` | `/api/health` | Health check |
+| `GET` | `/api/sessions/{id}` | Get session metadata |
+| `DELETE` | `/api/sessions/{id}` | Clear session, delete files, purge RAG index |
+| `POST` | `/api/sessions/{id}/files` | Upload a PDF or CSV (triggers embedding) |
+| `GET` | `/api/sessions/{id}/files` | List uploaded files (metadata only) |
+| `POST` | `/api/sessions/{id}/questions` | Ask a question (RAG answer) |
+| `GET` | `/api/health` | Liveness check |
 
 ---
 
-## Privacy-First Design Notes
+## Privacy-First Design
 
 - **No database** — session data is held in process memory only
-- **Temporary files** — uploads are stored in a local `TempSessions/` folder, scoped per session
-- **Manual clear** — the user explicitly triggers file and session removal
-- **No telemetry** — no analytics, tracking, or external calls
+- **Local LLM only** — Ollama runs on your machine; the `BaseUrl` is validated to be a loopback address at startup
+- **Temporary files** — uploads are stored in `TempSessions/`, scoped per session, and deleted when the session clears
+- **Automatic expiry** — sessions inactive for 60 minutes are automatically expired and all associated files, chunks, and embeddings are removed
+- **Startup cleanup** — the `TempSessions/` directory is wiped when the backend starts, removing any files left by a previous crashed process
+- **No content in logs** — logs include only filenames and counts, never file content or extracted text
 - **Extracted text is server-side only** — raw file content is never returned to the client
-- **Session IDs are random UUIDs** — not tied to any user identity
+- **No telemetry** — no analytics, tracking, or external calls of any kind
 
 ---
 
 ## Current Limitations
 
-- Text-layer PDFs only (no OCR for scanned/image PDFs)
-- Answering uses keyword matching, not semantic search
-- Sessions do not persist across server restarts
+- Text-layer PDFs only (no OCR for scanned/image-based PDFs)
+- Sessions do not persist across server restarts (by design)
 - No authentication — designed for single-user local use only
-- No automatic session expiry (manual clear required)
+- Ollama models must be pulled manually before first use
+- Large documents with many chunks may slow down the embedding step depending on hardware
 
 ---
 
-## Future Evolution Ideas
+## Future Ideas
 
-- **Phase 2:** Add semantic search using a local embedding model (e.g., sentence-transformers via Python sidecar)
-- **Phase 3:** Integrate an optional LLM (behind the existing `IQuestionAnsweringService` interface)
-- **Phase 4:** Add user authentication and optional persistent session history
-- **Phase 5:** Container deployment (Docker Compose for frontend + backend)
-- Add automatic session expiry and cleanup background job
-- Support XLSX files
-- Add OCR support for scanned PDFs
-
----
-
-## Portfolio Notes
-
-### Why React + C#?
-
-I chose React + TypeScript for the frontend because it produces a strongly-typed, component-based UI that is easy to reason about and extend. Vite gives fast local development without complex configuration.
-
-For the backend I chose ASP.NET Core (.NET 8) because:
-- It's my primary professional stack
-- It provides excellent built-in dependency injection, middleware, and hosting
-- C# gives strong typing across the full backend surface
-- It produces a single deployable binary — easy to explain and demo
-
-I deliberately avoided Python and microservices for Phase 1. A single React + C# monolith is far easier to run, explain to interviewers, and evolve incrementally.
-
-### What I Wanted to Validate
-
-- Can I build a working privacy-first document Q&A pipeline without a vector database?
-- Does a simple keyword-matching approach produce usable answers for a Phase 1 demo?
-- Can the architecture cleanly support swapping in an LLM later?
-
-### How This Scaffold Supports Future Evolution
-
-The `IQuestionAnsweringService` interface means the keyword-matching implementation can be replaced with an LLM-backed version in Phase 2 without changing any controllers. The `ITextExtractionService` interface similarly allows future OCR support to be added transparently. The frontend's `services/api.ts` layer means the base URL and auth headers can be updated in one place.
+- Docker Compose setup to start backend + frontend together
+- OCR support for scanned PDFs
+- XLSX file support
+- Optional streaming responses from the LLM
+- UI indicator showing whether Ollama is online
 

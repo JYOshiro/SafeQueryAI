@@ -5,18 +5,40 @@ using SafeQueryAI.Api.Services.Interfaces;
 namespace SafeQueryAI.Api.Services;
 
 /// <summary>
-/// Answers questions using only the text content extracted from session-uploaded files.
-/// This is a straightforward keyword/phrase matching approach for Phase 1.
-/// It does not call any external LLM — all processing is local.
-/// An LLM integration point can be added behind this interface in a later phase.
+/// Answers questions using Retrieval-Augmented Generation (RAG):
+///   1. The question is embedded via Ollama's embedding model.
+///   2. The most relevant document chunks are retrieved from the in-memory vector store.
+///   3. Retrieved chunks are sent as context to the Ollama LLM for a grounded answer.
+///
+/// Gracefully falls back to keyword matching when Ollama is unavailable or the session
+/// has not yet been indexed (e.g. Ollama was offline during file upload).
 /// </summary>
 public class QuestionAnsweringService : IQuestionAnsweringService
 {
-    private const int MaxEvidenceSnippetLength = 300;
+    private const int TopK = 5;
+    private const int MaxSnippetLength = 300;
     private const int ContextWindowChars = 400;
-    private const int MinMatchScore = 1;
+    private const int MinKeywordScore = 1;
 
-    public AskQuestionResponse Answer(string question, IReadOnlyList<StoredFileInfo> files)
+    private readonly IOllamaService _ollama;
+    private readonly IVectorStoreService _vectorStore;
+    private readonly ILogger<QuestionAnsweringService> _logger;
+
+    public QuestionAnsweringService(
+        IOllamaService ollama,
+        IVectorStoreService vectorStore,
+        ILogger<QuestionAnsweringService> logger)
+    {
+        _ollama = ollama;
+        _vectorStore = vectorStore;
+        _logger = logger;
+    }
+
+    public async Task<AskQuestionResponse> AnswerAsync(
+        string question,
+        string sessionId,
+        IReadOnlyList<StoredFileInfo> files,
+        CancellationToken cancellationToken = default)
     {
         if (files.Count == 0)
         {
@@ -24,74 +46,109 @@ public class QuestionAnsweringService : IQuestionAnsweringService
                 Question: question,
                 Answer: "No files have been uploaded to this session. Please upload a PDF or CSV file first.",
                 HasConfidentAnswer: false,
-                Evidence: new List<EvidenceItem>()
-            );
+                Evidence: new List<EvidenceItem>());
         }
 
-        // Extract meaningful keywords from the question (ignore short stop words)
-        var keywords = ExtractKeywords(question);
+        // ── RAG path ──────────────────────────────────────────────────────────
+        try
+        {
+            var queryEmbedding = await _ollama.GetEmbeddingAsync(question, cancellationToken);
+            var relevantChunks = _vectorStore.Search(sessionId, queryEmbedding, TopK);
 
+            if (relevantChunks.Count > 0)
+            {
+                var contextItems = relevantChunks
+                    .Select(c => $"[From: {c.FileName}]\n{c.Text}");
+
+                var answer = await _ollama.GenerateAnswerAsync(question, contextItems, cancellationToken);
+
+                var evidence = relevantChunks
+                    .GroupBy(c => c.FileName)
+                    .Select(g => new EvidenceItem(g.Key, TrimSnippet(g.First().Text)))
+                    .Take(3)
+                    .ToList();
+
+                return new AskQuestionResponse(
+                    Question: question,
+                    Answer: answer,
+                    HasConfidentAnswer: true,
+                    Evidence: evidence);
+            }
+
+            // Vector store empty for this session — Ollama may have been offline during upload.
+            _logger.LogWarning(
+                "No indexed chunks found for session {SessionId}. Falling back to keyword search.",
+                sessionId);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            _logger.LogWarning(ex, "Ollama unavailable. Falling back to keyword search.");
+        }
+
+        // ── Keyword-matching fallback ─────────────────────────────────────────
+        return KeywordAnswer(question, files);
+    }
+
+    // ── Keyword matching (fallback) ───────────────────────────────────────────
+
+    private static AskQuestionResponse KeywordAnswer(string question, IReadOnlyList<StoredFileInfo> files)
+    {
+        var keywords = ExtractKeywords(question);
         var allMatches = new List<(StoredFileInfo File, string Snippet, int Score)>();
 
         foreach (var file in files)
         {
-            if (string.IsNullOrWhiteSpace(file.ExtractedText))
-                continue;
+            if (string.IsNullOrWhiteSpace(file.ExtractedText)) continue;
 
-            var matches = FindMatches(file.ExtractedText, keywords);
-            foreach (var (snippet, score) in matches)
-            {
+            foreach (var (snippet, score) in FindMatches(file.ExtractedText, keywords))
                 allMatches.Add((file, snippet, score));
-            }
         }
 
-        // Sort by relevance score descending, take top evidence items
         var topMatches = allMatches
             .OrderByDescending(m => m.Score)
             .Take(3)
             .ToList();
 
-        if (topMatches.Count == 0 || topMatches[0].Score < MinMatchScore)
+        if (topMatches.Count == 0 || topMatches[0].Score < MinKeywordScore)
         {
             return new AskQuestionResponse(
                 Question: question,
-                Answer: "The uploaded files do not contain sufficient information to answer this question confidently. " +
+                Answer: "The uploaded files do not contain sufficient information to answer this question. " +
                         "Please ensure the relevant content is present in your uploaded files.",
                 HasConfidentAnswer: false,
-                Evidence: new List<EvidenceItem>()
-            );
+                Evidence: new List<EvidenceItem>());
         }
 
-        // Build a concise answer from the top matching snippets
-        var evidenceItems = topMatches
-            .Select(m => new EvidenceItem(
-                FileName: m.File.OriginalFileName,
-                Snippet: TrimSnippet(m.Snippet)
-            ))
+        var evidence = topMatches
+            .Select(m => new EvidenceItem(m.File.OriginalFileName, TrimSnippet(m.Snippet)))
             .ToList();
 
-        var answerText = BuildAnswer(question, topMatches);
+        var fileNames = topMatches.Select(m => m.File.OriginalFileName).Distinct().ToList();
+        var fileList  = fileNames.Count == 1
+            ? $"\"{fileNames[0]}\""
+            : string.Join(", ", fileNames.SkipLast(1).Select(f => $"\"{f}\"")) + $" and \"{fileNames[^1]}\"";
+
+        var answerText =
+            $"Based on the uploaded file(s) {fileList}, the most relevant content found is:\n\n" +
+            TrimSnippet(topMatches[0].Snippet);
 
         return new AskQuestionResponse(
             Question: question,
             Answer: answerText,
             HasConfidentAnswer: true,
-            Evidence: evidenceItems
-        );
+            Evidence: evidence);
     }
 
     private static string[] ExtractKeywords(string question)
     {
         var stopWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "a", "an", "the", "is", "are", "was", "were", "be", "been",
-            "have", "has", "had", "do", "does", "did", "will", "would",
-            "could", "should", "may", "might", "shall", "can", "need",
-            "what", "which", "who", "whom", "whose", "when", "where",
-            "why", "how", "that", "this", "these", "those", "i", "me",
-            "my", "we", "our", "you", "your", "he", "she", "it", "they",
-            "them", "their", "in", "on", "at", "to", "for", "of", "and",
-            "or", "but", "not", "with", "about", "from", "by", "as", "tell"
+            "a","an","the","is","are","was","were","be","been","have","has","had",
+            "do","does","did","will","would","could","should","may","might","shall",
+            "can","need","what","which","who","whom","whose","when","where","why",
+            "how","that","this","these","those","i","me","my","we","our","you",
+            "your","he","she","it","they","them","their","in","on","at","to","for",
+            "of","and","or","but","not","with","about","from","by","as","tell"
         };
 
         return question
@@ -105,28 +162,18 @@ public class QuestionAnsweringService : IQuestionAnsweringService
     private static List<(string Snippet, int Score)> FindMatches(string text, string[] keywords)
     {
         var results = new List<(string Snippet, int Score)>();
+        if (keywords.Length == 0) return results;
 
-        if (keywords.Length == 0)
-            return results;
-
-        // Split text into sentences/segments for snippet extraction
         var segments = text
             .Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
-            .Where(s => s.Length > 10)
-            .ToArray();
+            .Where(s => s.Length > 10);
 
         foreach (var segment in segments)
         {
-            var score = keywords.Count(k =>
-                segment.Contains(k, StringComparison.OrdinalIgnoreCase));
-
-            if (score > 0)
-            {
-                results.Add((segment, score));
-            }
+            int score = keywords.Count(k => segment.Contains(k, StringComparison.OrdinalIgnoreCase));
+            if (score > 0) results.Add((segment, score));
         }
 
-        // Also do a broader context window search for multi-keyword spans
         foreach (var keyword in keywords)
         {
             int idx = 0;
@@ -135,12 +182,10 @@ public class QuestionAnsweringService : IQuestionAnsweringService
                 idx = text.IndexOf(keyword, idx, StringComparison.OrdinalIgnoreCase);
                 if (idx < 0) break;
 
-                int start = Math.Max(0, idx - ContextWindowChars / 2);
-                int end = Math.Min(text.Length, idx + ContextWindowChars / 2);
+                int start   = Math.Max(0, idx - ContextWindowChars / 2);
+                int end     = Math.Min(text.Length, idx + ContextWindowChars / 2);
                 var snippet = text[start..end];
-
-                var score = keywords.Count(k =>
-                    snippet.Contains(k, StringComparison.OrdinalIgnoreCase));
+                int score   = keywords.Count(k => snippet.Contains(k, StringComparison.OrdinalIgnoreCase));
 
                 results.Add((snippet, score));
                 idx += keyword.Length;
@@ -150,29 +195,11 @@ public class QuestionAnsweringService : IQuestionAnsweringService
         return results;
     }
 
-    private static string BuildAnswer(string question, List<(StoredFileInfo File, string Snippet, int Score)> matches)
-    {
-        var fileNames = matches
-            .Select(m => m.File.OriginalFileName)
-            .Distinct()
-            .ToList();
-
-        var fileList = fileNames.Count == 1
-            ? $"\"{fileNames[0]}\""
-            : string.Join(", ", fileNames.Take(fileNames.Count - 1).Select(f => $"\"{f}\"")) +
-              $" and \"{fileNames[^1]}\"";
-
-        var topSnippet = TrimSnippet(matches[0].Snippet);
-
-        return $"Based on the uploaded file(s) {fileList}, the most relevant content found is:\n\n{topSnippet}";
-    }
-
     private static string TrimSnippet(string snippet)
     {
         snippet = snippet.Trim();
-        if (snippet.Length <= MaxEvidenceSnippetLength)
-            return snippet;
-
-        return snippet[..MaxEvidenceSnippetLength].TrimEnd() + "…";
+        return snippet.Length <= MaxSnippetLength
+            ? snippet
+            : snippet[..MaxSnippetLength].TrimEnd() + "…";
     }
 }

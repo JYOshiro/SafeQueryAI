@@ -12,6 +12,7 @@ public class FilesController : ControllerBase
     private readonly ISessionService _sessionService;
     private readonly IFileStorageService _fileStorage;
     private readonly ITextExtractionService _textExtraction;
+    private readonly IDocumentIndexingService _indexing;
     private readonly IConfiguration _configuration;
     private readonly ILogger<FilesController> _logger;
 
@@ -22,12 +23,14 @@ public class FilesController : ControllerBase
         ISessionService sessionService,
         IFileStorageService fileStorage,
         ITextExtractionService textExtraction,
+        IDocumentIndexingService indexing,
         IConfiguration configuration,
         ILogger<FilesController> logger)
     {
         _sessionService = sessionService;
         _fileStorage = fileStorage;
         _textExtraction = textExtraction;
+        _indexing = indexing;
         _configuration = configuration;
         _logger = logger;
     }
@@ -93,6 +96,19 @@ public class FilesController : ControllerBase
         _logger.LogInformation(
             "File {FileName} uploaded to session {SessionId}. Extracted {CharCount} characters.",
             file.FileName, sessionId, extractedText.Length);
+
+        // Index the file for RAG. If Ollama is unavailable the upload still succeeds;
+        // question answering will fall back to keyword matching for this session.
+        try
+        {
+            await _indexing.IndexFileAsync(sessionId, fileId, file.FileName, extractedText);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Ollama unavailable — file {FileName} uploaded but not indexed for RAG.",
+                file.FileName);
+        }
 
         return Ok(new FileUploadResponse(
             fileId, file.FileName, storedFile.FileType, file.Length, storedFile.UploadedAt));

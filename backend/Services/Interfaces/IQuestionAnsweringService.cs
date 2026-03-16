@@ -6,8 +6,13 @@ namespace SafeQueryAI.Api.Services.Interfaces;
 public interface IQuestionAnsweringService
 {
     /// <summary>
-    /// Searches the session's uploaded file content for an answer to the question.
-    /// Returns a grounded response based only on available session content.
+    /// Answers the question using RAG: embeds the question, retrieves the most relevant
+    /// document chunks from the session's vector store, and generates a grounded answer
+    /// via the configured Ollama LLM. Falls back to keyword matching if Ollama is unavailable.
     /// </summary>
-    AskQuestionResponse Answer(string question, IReadOnlyList<StoredFileInfo> files);
+    Task<AskQuestionResponse> AnswerAsync(
+        string question,
+        string sessionId,
+        IReadOnlyList<StoredFileInfo> files,
+        CancellationToken cancellationToken = default);
 }

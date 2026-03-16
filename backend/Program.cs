@@ -8,11 +8,40 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Register application services as singletons/scoped as appropriate
+// Register core application services
 builder.Services.AddSingleton<ISessionService, SessionService>();
 builder.Services.AddSingleton<IFileStorageService, FileStorageService>();
 builder.Services.AddSingleton<ITextExtractionService, TextExtractionService>();
+
+// Register RAG services
+builder.Services.AddSingleton<IVectorStoreService, VectorStoreService>();
+builder.Services.AddSingleton<IDocumentIndexingService, DocumentIndexingService>();
 builder.Services.AddSingleton<IQuestionAnsweringService, QuestionAnsweringService>();
+
+// Background service that expires abandoned sessions and removes their data,
+// enforcing the temporary-session privacy promise.
+builder.Services.AddHostedService<SessionExpiryService>();
+
+// Register Ollama HTTP client — local-only enforcement
+var ollamaBaseUrl = builder.Configuration.GetValue<string>("Ollama:BaseUrl") ?? "http://localhost:11434";
+
+// PRIVACY GUARDRAIL: Reject any Ollama URL that is not a local loopback address.
+// This prevents accidental or deliberate routing of document content to cloud endpoints.
+if (!Uri.TryCreate(ollamaBaseUrl, UriKind.Absolute, out var ollamaUri)
+    || !ollamaUri.IsLoopback)
+{
+    throw new InvalidOperationException(
+        $"PRIVACY VIOLATION: Ollama:BaseUrl '{ollamaBaseUrl}' is not a local loopback address. " +
+        "SafeQueryAI only permits local Ollama inference (e.g. http://localhost:11434). " +
+        "Document content must never leave the local environment.");
+}
+
+builder.Services.AddHttpClient<IOllamaService, OllamaService>(client =>
+{
+    client.BaseAddress = ollamaUri;
+    // LLM generation can take time, especially on first token
+    client.Timeout = TimeSpan.FromMinutes(5);
+});
 
 // Allow CORS for local frontend development
 builder.Services.AddCors(options =>

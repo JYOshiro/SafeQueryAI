@@ -21,9 +21,13 @@ public class QuestionsController : ControllerBase
 
     /// <summary>
     /// Asks a question and receives an answer grounded in the session's uploaded files only.
+    /// Uses RAG (Ollama) when available, otherwise falls back to keyword matching.
     /// </summary>
     [HttpPost]
-    public IActionResult AskQuestion(string sessionId, [FromBody] AskQuestionRequest request)
+    public async Task<IActionResult> AskQuestion(
+        string sessionId,
+        [FromBody] AskQuestionRequest request,
+        CancellationToken cancellationToken)
     {
         var session = _sessionService.GetSession(sessionId);
         if (session is null)
@@ -32,7 +36,9 @@ public class QuestionsController : ControllerBase
         if (string.IsNullOrWhiteSpace(request?.Question))
             return BadRequest(new ErrorResponse("Question is required"));
 
-        var response = _questionAnswering.Answer(request.Question, session.Files);
+        var response = await _questionAnswering.AnswerAsync(
+            request.Question, sessionId, session.Files, cancellationToken);
+
         return Ok(response);
     }
 }

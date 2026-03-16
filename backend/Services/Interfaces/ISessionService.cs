@@ -15,4 +15,10 @@ public interface ISessionService
 
     /// <summary>Removes all files and data for the session.</summary>
     bool ClearSession(string sessionId);
+
+    /// <summary>
+    /// Returns the IDs of all sessions whose last-accessed time is older than <paramref name="timeout"/>.
+    /// Used by the background expiry service to enforce the temporary-session promise.
+    /// </summary>
+    IReadOnlyList<string> GetExpiredSessionIds(TimeSpan timeout);
 }
