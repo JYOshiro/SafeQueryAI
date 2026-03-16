@@ -1,0 +1,26 @@
+# Dependencies
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# .NET build output
+backend/bin/
+backend/obj/
+
+# Temporary session files
+backend/TempSessions/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.user
+*.suo
+*.swp
+
+# Environment files
+.env
+.env.local
