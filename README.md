@@ -1,4 +1,4 @@
-# PrivateDoc AI — Phase 1 Scaffold
+# SafeQueryAI — Phase 1 Scaffold
 
 > **Portfolio project** · Privacy-first document Q&A web application
 
@@ -8,7 +8,7 @@ A responsive web application where users upload PDFs and CSV files and ask natur
 
 ## Problem Solved
 
-Users often need to query information from private documents without sending those documents to a cloud service. PrivateDoc AI enables session-scoped document analysis: upload, ask, get answers, then clear — all locally, without a database.
+Users often need to query information from private documents without sending those documents to a cloud service. SafeQueryAI enables session-scoped document analysis: upload, ask, get answers, then clear — all locally, without a database.
 
 ---
 
@@ -60,7 +60,7 @@ SafeQueryAI/
     ├── Models/                # Internal models
     ├── Contracts/             # API request/response DTOs
     ├── Program.cs
-    └── PrivateDoc.Api.csproj
+    └── SafeQueryAI.Api.csproj
 ```
 
 ---

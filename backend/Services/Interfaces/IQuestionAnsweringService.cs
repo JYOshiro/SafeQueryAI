@@ -1,7 +1,7 @@
-using PrivateDoc.Api.Contracts;
-using PrivateDoc.Api.Models;
+using SafeQueryAI.Api.Contracts;
+using SafeQueryAI.Api.Models;
 
-namespace PrivateDoc.Api.Services.Interfaces;
+namespace SafeQueryAI.Api.Services.Interfaces;
 
 public interface IQuestionAnsweringService
 {

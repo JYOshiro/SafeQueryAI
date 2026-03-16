@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 
-namespace PrivateDoc.Api.Controllers;
+namespace SafeQueryAI.Api.Controllers;
 
 [ApiController]
 [Route("api/health")]

@@ -1,8 +1,8 @@
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
-using PrivateDoc.Api.Services.Interfaces;
+using SafeQueryAI.Api.Services.Interfaces;
 
-namespace PrivateDoc.Api.Services;
+namespace SafeQueryAI.Api.Services;
 
 /// <summary>
 /// Extracts plain text from text-based PDFs and CSV files.

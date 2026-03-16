@@ -1,8 +1,8 @@
-using PrivateDoc.Api.Contracts;
-using PrivateDoc.Api.Models;
-using PrivateDoc.Api.Services.Interfaces;
+using SafeQueryAI.Api.Contracts;
+using SafeQueryAI.Api.Models;
+using SafeQueryAI.Api.Services.Interfaces;
 
-namespace PrivateDoc.Api.Services;
+namespace SafeQueryAI.Api.Services;
 
 /// <summary>
 /// Answers questions using only the text content extracted from session-uploaded files.

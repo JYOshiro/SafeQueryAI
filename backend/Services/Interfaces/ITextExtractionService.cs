@@ -1,4 +1,4 @@
-namespace PrivateDoc.Api.Services.Interfaces;
+namespace SafeQueryAI.Api.Services.Interfaces;
 
 public interface ITextExtractionService
 {

@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
-using PrivateDoc.Api.Contracts;
-using PrivateDoc.Api.Services.Interfaces;
+using SafeQueryAI.Api.Contracts;
+using SafeQueryAI.Api.Services.Interfaces;
 
-namespace PrivateDoc.Api.Controllers;
+namespace SafeQueryAI.Api.Controllers;
 
 [ApiController]
 [Route("api/sessions/{sessionId}/questions")]

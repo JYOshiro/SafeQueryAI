@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
-using PrivateDoc.Api.Contracts;
-using PrivateDoc.Api.Models;
-using PrivateDoc.Api.Services.Interfaces;
+using SafeQueryAI.Api.Contracts;
+using SafeQueryAI.Api.Models;
+using SafeQueryAI.Api.Services.Interfaces;
 
-namespace PrivateDoc.Api.Controllers;
+namespace SafeQueryAI.Api.Controllers;
 
 [ApiController]
 [Route("api/sessions/{sessionId}/files")]
@@ -65,7 +65,7 @@ public class FilesController : ControllerBase
         if (!AllowedExtensions.Contains(extension))
             return BadRequest(new ErrorResponse("Unsupported file type", "Only PDF and CSV files are supported."));
 
-        var maxMb = _configuration.GetValue<int>("PrivateDoc:MaxFileSizeMb", 20);
+        var maxMb = _configuration.GetValue<int>("SafeQueryAI:MaxFileSizeMb", 20);
         if (file.Length > maxMb * 1024 * 1024)
             return BadRequest(new ErrorResponse("File too large", $"Maximum allowed size is {maxMb} MB."));
 

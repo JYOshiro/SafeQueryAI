@@ -1,4 +1,4 @@
-namespace PrivateDoc.Api.Contracts;
+namespace SafeQueryAI.Api.Contracts;
 
 public record SessionFilesResponse(
     string SessionId,

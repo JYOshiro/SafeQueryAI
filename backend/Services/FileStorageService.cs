@@ -1,6 +1,6 @@
-using PrivateDoc.Api.Services.Interfaces;
+using SafeQueryAI.Api.Services.Interfaces;
 
-namespace PrivateDoc.Api.Services;
+namespace SafeQueryAI.Api.Services;
 
 /// <summary>
 /// Handles saving and deleting uploaded files in session-scoped temporary directories.
@@ -14,7 +14,7 @@ public class FileStorageService : IFileStorageService
     public FileStorageService(IConfiguration configuration, ILogger<FileStorageService> logger)
     {
         _logger = logger;
-        var configuredPath = configuration["PrivateDoc:TempStoragePath"] ?? "TempSessions";
+        var configuredPath = configuration["SafeQueryAI:TempStoragePath"] ?? "TempSessions";
         // Resolve relative to the app's content root
         _basePath = Path.IsPathRooted(configuredPath)
             ? configuredPath
