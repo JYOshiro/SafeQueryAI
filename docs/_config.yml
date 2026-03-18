@@ -1,0 +1,40 @@
+# Jekyll configuration for GitHub Pages
+title: SafeQueryAI Documentation
+description: Privacy-first document Q&A with local RAG
+url: "https://yourusername.github.io/SafeQueryAI"
+baseurl: "/SafeQueryAI"
+
+# Theme
+theme: jekyll-theme-minimal
+
+# Navigation
+header_pages:
+  - index.md
+  - getting-started.md
+  - architecture.md
+  - api-documentation.md
+  - frontend-guide.md
+  - configuration.md
+  - deployment.md
+  - development.md
+  - faq.md
+
+# SEO and social
+author: Your Name
+social:
+  links:
+    - https://github.com/yourusername/SafeQueryAI
+
+# Build settings
+markdown: kramdown
+highlighter: rouge
+plugins:
+  - jekyll-sitemap
+  - jekyll-feed
+
+# Defaults
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: "default"
