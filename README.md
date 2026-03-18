@@ -18,6 +18,7 @@ Full documentation is available at **[https://jyoshiro.github.io/SafeQueryAI/](h
 
 Quick links:
 - [Getting Started](https://jyoshiro.github.io/SafeQueryAI/getting-started.html)
+- [Implementation Plan](https://jyoshiro.github.io/SafeQueryAI/implementation-plan.html)
 - [Architecture](https://jyoshiro.github.io/SafeQueryAI/architecture.html)
 - [API Reference](https://jyoshiro.github.io/SafeQueryAI/api-documentation.html)
 - [Deployment Guide](https://jyoshiro.github.io/SafeQueryAI/deployment.html)
