@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SafeQueryAI.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+76c41ba7385ce3a928393dfade4419d9bf7964a0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d22ca3afde7414e98008d7435c290ccb585abdf1")]
 [assembly: System.Reflection.AssemblyProductAttribute("SafeQueryAI.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SafeQueryAI.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
