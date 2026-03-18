@@ -1,7 +1,7 @@
 # Jekyll configuration for GitHub Pages
 title: SafeQueryAI Documentation
 description: Privacy-first document Q&A with local RAG
-url: "https://yourusername.github.io/SafeQueryAI"
+url: "https://jyoshiro.github.io/SafeQueryAI"
 baseurl: "/SafeQueryAI"
 
 # Theme
@@ -20,10 +20,11 @@ header_pages:
   - faq.md
 
 # SEO and social
-author: Your Name
+author: Jessica Y. Oshiro
 social:
   links:
-    - https://github.com/yourusername/SafeQueryAI
+    - https://github.com/JYOshiro/SafeQueryAI
+    - https://www.linkedin.com/in/jessica-oshiro-45a99693
 
 # Build settings
 markdown: kramdown
