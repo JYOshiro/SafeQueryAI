@@ -12,6 +12,19 @@ Users often need to query private documents without sending them to a cloud serv
 
 ---
 
+## 📖 Documentation
+
+Full documentation is available at **[https://jyoshiro.github.io/SafeQueryAI/](https://jyoshiro.github.io/SafeQueryAI/)**
+
+Quick links:
+- [Getting Started](https://jyoshiro.github.io/SafeQueryAI/getting-started.html)
+- [Architecture](https://jyoshiro.github.io/SafeQueryAI/architecture.html)
+- [API Reference](https://jyoshiro.github.io/SafeQueryAI/api-documentation.html)
+- [Deployment Guide](https://jyoshiro.github.io/SafeQueryAI/deployment.html)
+- [FAQ](https://jyoshiro.github.io/SafeQueryAI/faq.html)
+
+---
+
 ## How It Works (RAG Pipeline)
 
 1. **Upload** — PDF or CSV files are saved to a temporary session folder.
