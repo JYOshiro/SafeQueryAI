@@ -1,317 +1,250 @@
 ---
 layout: default
-title: API Documentation
+title: API Reference
 ---
 
-# API Documentation
+# API Reference
 
-SafeQueryAI provides a RESTful API for all operations. The backend is an ASP.NET Core Web API running on `https://localhost:7180` (or as configured).
+SafeQueryAI exposes REST endpoints for session lifecycle, file handling, and document question-answering.
 
 ## Base URL
 
 ```
-https://localhost:7180/api
+http://localhost:5000/api
 ```
 
-## Endpoints Overview
+## Endpoint Summary
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| `POST` | `/sessions/create` | Create a new session |
+| `POST` | `/sessions` | Create a new session |
+| `GET` | `/sessions/{sessionId}` | Get session metadata |
 | `DELETE` | `/sessions/{sessionId}` | Delete a session |
-| `GET` | `/sessions/{sessionId}` | Get session info |
-| `POST` | `/files/upload` | Upload a file |
-| `GET` | `/files/{sessionId}` | List files in session |
-| `POST` | `/questions/ask` | Ask a question |
-| `GET` | `/health` | Health check |
+| `GET` | `/sessions/{sessionId}/files` | List session files |
+| `POST` | `/sessions/{sessionId}/files` | Upload PDF or CSV file |
+| `POST` | `/sessions/{sessionId}/questions` | Ask question (single response) |
+| `POST` | `/sessions/{sessionId}/questions/stream` | Ask question (SSE stream) |
+| `GET` | `/health` | Liveness check |
 
-## Detailed Endpoints
+## Sessions
 
-### Sessions
-
-#### Create Session
+### Create Session
 ```
-POST /sessions/create
+POST /sessions
 ```
 
-**Response**:
+Response example:
 ```json
 {
   "sessionId": "uuid-string",
-  "createdAt": "2024-03-18T12:30:00Z",
-  "expiresAt": "2024-03-18T13:30:00Z"
+  "createdAt": "2026-03-18T12:30:00Z"
 }
 ```
 
-#### Get Session Info
+### Get Session
 ```
 GET /sessions/{sessionId}
 ```
 
-**Response**:
+Response example:
 ```json
 {
   "sessionId": "uuid-string",
-  "createdAt": "2024-03-18T12:30:00Z",
-  "expiresAt": "2024-03-18T13:30:00Z",
-  "fileCount": 2,
-  "documentChunkCount": 150
+  "createdAt": "2026-03-18T12:30:00Z"
 }
 ```
 
-#### Delete Session
+### Delete Session
 ```
 DELETE /sessions/{sessionId}
 ```
 
-**Response**:
+Response example:
 ```json
 {
-  "message": "Session deleted successfully"
+  "sessionId": "uuid-string",
+  "cleared": true,
+  "message": "Session cleared. All uploaded files have been removed."
 }
 ```
 
-### Files
+## Files
 
-#### Upload File
+### List Files in Session
 ```
-POST /files/upload
-Content-Type: multipart/form-data
-
-Parameters:
-- sessionId (required): Session UUID
-- file (required): File to upload (PDF or CSV)
+GET /sessions/{sessionId}/files
 ```
 
-**Response**:
+Response example:
 ```json
 {
-  "fileName": "document.pdf",
-  "fileSize": 102400,
-  "fileType": "application/pdf",
-  "uploadedAt": "2024-03-18T12:31:00Z",
-  "status": "processing"
-}
-```
-
-#### List Session Files
-```
-GET /files/{sessionId}
-```
-
-**Response**:
-```json
-{
+  "sessionId": "uuid-string",
   "files": [
     {
-      "fileName": "document1.pdf",
-      "fileSize": 102400,
-      "uploadedAt": "2024-03-18T12:31:00Z"
-    },
-    {
-      "fileName": "data.csv",
-      "fileSize": 51200,
-      "uploadedAt": "2024-03-18T12:32:00Z"
+      "fileId": "file-id",
+      "originalFileName": "document.pdf",
+      "fileType": "pdf",
+      "fileSizeBytes": 102400,
+      "uploadedAt": "2026-03-18T12:31:00Z"
     }
   ]
 }
 ```
 
-### Questions
-
-#### Ask Question
+### Upload File
 ```
-POST /questions/ask
+POST /sessions/{sessionId}/files
+Content-Type: multipart/form-data
+
+Form field:
+- file (required)
+```
+
+Constraints:
+
+- Allowed types: `.pdf`, `.csv`
+- Configured file size limit: `20 MB`
+- Request hard limit: `25 MB`
+
+Response example:
+```json
+{
+  "fileId": "file-id",
+  "fileName": "document.pdf",
+  "fileType": "pdf",
+  "fileSizeBytes": 102400,
+  "uploadedAt": "2026-03-18T12:31:00Z"
+}
+```
+
+## Questions
+
+### Ask Question (single response)
+```
+POST /sessions/{sessionId}/questions
 Content-Type: application/json
 
 {
-  "sessionId": "uuid-string",
   "question": "What does the document say about...?"
 }
 ```
 
-**Response** (Server-Sent Events stream):
-```
-data: {"chunk":"The document"}
-data: {"chunk":" says "}
-data: {"chunk":"that..."}
-data: {"status":"complete","totalTokens":245}
+Response example:
+
+```json
+{
+  "question": "What does the document say about...?",
+  "answer": "...",
+  "hasConfidentAnswer": true,
+  "evidence": [
+    {
+      "fileName": "document.pdf",
+      "snippet": "..."
+    }
+  ]
+}
 ```
 
-Client-side example:
+### Ask Question (stream)
+
+```
+POST /sessions/{sessionId}/questions/stream
+Content-Type: application/json
+Accept: text/event-stream
+
+{
+  "question": "What does the document say about...?"
+}
+```
+
+SSE event types:
+
+- token event: `{"type":"token","content":"..."}`
+- done event: `{"type":"done","question":"...","hasConfidentAnswer":true,"evidence":[...]}`
+
+Frontend consumption example:
 
 ```javascript
-const response = await fetch('/api/questions/ask', {
+const response = await fetch(`/api/sessions/${sessionId}/questions/stream`, {
   method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ sessionId, question })
+  headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+  body: JSON.stringify({ question })
 });
 
 const reader = response.body.getReader();
 while (true) {
   const { done, value } = await reader.read();
   if (done) break;
-  const line = new TextDecoder().decode(value);
-  // Process chunk
+  const text = new TextDecoder().decode(value);
+  // Parse data: lines
 }
 ```
 
-### Health
+## Health
 
-#### Health Check
+### Health Check
 ```
 GET /health
 ```
 
-**Response**:
+Response example:
 ```json
 {
   "status": "healthy",
-  "timestamp": "2024-03-18T12:30:00Z",
-  "services": {
-    "ollama": "connected",
-    "storage": "available"
-  }
+  "timestamp": "2026-03-18T12:30:00Z"
 }
 ```
 
 ## Error Responses
 
-All errors follow this format:
+Error payloads generally use:
 
 ```json
 {
-  "error": "Error type",
-  "message": "Human-readable error description",
-  "details": "Additional context (if available)"
+  "error": "Error summary",
+  "detail": "Optional additional detail"
 }
 ```
 
-### Common Error Codes
+Common cases:
 
 | Code | Message | Solution |
-|------|---------|----------|
-| 400 | Bad Request | Check request format and parameters |
-| 404 | Session Not Found | Create a new session first |
-| 422 | File Processing Failed | Check file format (PDF/CSV only) |
-| 500 | Ollama Connection Failed | Ensure Ollama service is running |
-| 503 | Service Unavailable | Backend is starting, retry after a moment |
+|---|---|---|
+| 400 | Invalid request | Validate payload and required fields |
+| 404 | Session not found | Create a new session and retry |
+| 400 | Unsupported file type | Use PDF or CSV |
+| 400 | File too large | Keep file at or under configured limit |
 
-## Request/Response Models
+## Local Development Integration
+
+Frontend development server proxies `/api` to backend:
+
+- Frontend: `http://localhost:5173`
+- Proxy target: `http://localhost:5000`
+
+This removes the need for manual CORS configuration during local development.
+
+## Model and Privacy Assumptions
+
+- Ollama endpoint must remain local loopback.
+- Uploaded document text is processed only for active session operations.
+- Session cleanup removes temporary files and in-memory indexing state.
+
+## Reviewer Notes
+
+- [REVIEW REQUIRED: confirm whether API contracts have changed after this documentation update]
+
+## Related Pages
+
+- [Architecture](architecture.md)
+- [Security & Privacy](security-privacy.md)
+- [Getting Started](getting-started.md)
+
+<!-- Historical model snippets retained below only if needed for quick reference. -->
 
 ### AskQuestionRequest
 ```csharp
 {
-  "sessionId": "string (UUID)",
   "question": "string (1-2000 chars)"
 }
 ```
-
-### AnswerStreamChunk
-```csharp
-{
-  "chunk": "string (portion of answer)",
-  "status": "generating" | "complete" | "error"
-}
-```
-
-### FileUploadResponse
-```csharp
-{
-  "fileName": "string",
-  "fileSize": "long (bytes)",
-  "fileType": "string (MIME type)",
-  "uploadedAt": "DateTime",
-  "status": "processing" | "indexed" | "failed"
-}
-```
-
-### SessionInfo
-```csharp
-{
-  "sessionId": "Guid",
-  "createdAt": "DateTime",
-  "expiresAt": "DateTime",
-  "fileCount": "int",
-  "documentChunkCount": "int"
-}
-```
-
-## Authentication
-
-Currently, SafeQueryAI has no authentication layer. For production deployments, consider adding:
-
-- JWT token authentication
-- API key validation
-- Role-based access control (RBAC)
-- Rate limiting per session
-
-See [Deployment](deployment.md) for production recommendations.
-
-## Rate Limiting
-
-Default limits (per session):
-- File uploads: 10 per session
-- Questions: 100 per hour
-- File size: 50 MB per file
-
-Modify in `appsettings.json` as needed.
-
-## CORS Configuration
-
-By default, CORS is configured to accept requests from `http://localhost:*`. For production, update `Program.cs`:
-
-```csharp
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowFrontend", policy =>
-        policy.WithOrigins("https://yourdomain.com")
-              .AllowAnyMethod()
-              .AllowAnyHeader());
-});
-```
-
-## API Examples
-
-### JavaScript/Fetch
-
-```javascript
-// Create session
-const sessionRes = await fetch('/api/sessions/create', { method: 'POST' });
-const { sessionId } = await sessionRes.json();
-
-// Upload file
-const formData = new FormData();
-formData.append('sessionId', sessionId);
-formData.append('file', fileInput.files[0]);
-await fetch('/api/files/upload', { method: 'POST', body: formData });
-
-// Ask question
-const questionRes = await fetch('/api/questions/ask', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ sessionId, question: 'What is...' })
-});
-```
-
-### cURL
-
-```bash
-# Create session
-curl -X POST https://localhost:7180/api/sessions/create
-
-# Get session info
-curl https://localhost:7180/api/sessions/YOUR_SESSION_ID
-
-# Ask question
-curl -X POST https://localhost:7180/api/questions/ask \
-  -H "Content-Type: application/json" \
-  -d '{"sessionId":"YOUR_SESSION_ID","question":"What is..."}'
-```
-
-## Troubleshooting
-
-- **CORS Errors**: Ensure frontend URL is in allowed origins
-- **Session Expired**: Sessions expire after 60 minutes of no activity
-- **File Upload Fails**: Check file size and format (PDF/CSV only)
-- **Question Returns Error**: Ensure Ollama is running and models are loaded

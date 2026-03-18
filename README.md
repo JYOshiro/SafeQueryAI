@@ -17,11 +17,16 @@ Users often need to query private documents without sending them to a cloud serv
 Full documentation is available at **[https://jyoshiro.github.io/SafeQueryAI/](https://jyoshiro.github.io/SafeQueryAI/)**
 
 Quick links:
+- [Home](https://jyoshiro.github.io/SafeQueryAI/)
+- [Business Overview](https://jyoshiro.github.io/SafeQueryAI/business-overview.html)
 - [Getting Started](https://jyoshiro.github.io/SafeQueryAI/getting-started.html)
-- [Implementation Plan](https://jyoshiro.github.io/SafeQueryAI/implementation-plan.html)
 - [Architecture](https://jyoshiro.github.io/SafeQueryAI/architecture.html)
+- [Security & Privacy](https://jyoshiro.github.io/SafeQueryAI/security-privacy.html)
 - [API Reference](https://jyoshiro.github.io/SafeQueryAI/api-documentation.html)
-- [Deployment Guide](https://jyoshiro.github.io/SafeQueryAI/deployment.html)
+- [Frontend Guide](https://jyoshiro.github.io/SafeQueryAI/frontend-guide.html)
+- [Testing](https://jyoshiro.github.io/SafeQueryAI/testing.html)
+- [Deployment](https://jyoshiro.github.io/SafeQueryAI/deployment.html)
+- [Roadmap](https://jyoshiro.github.io/SafeQueryAI/roadmap.html)
 - [FAQ](https://jyoshiro.github.io/SafeQueryAI/faq.html)
 
 ---

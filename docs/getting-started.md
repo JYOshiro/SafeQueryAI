@@ -3,106 +3,110 @@ layout: default
 title: Getting Started
 ---
 
-# Getting Started with SafeQueryAI
+# Getting Started
 
-This guide will get you up and running with SafeQueryAI in minutes.
+This guide covers a clean local setup for SafeQueryAI.
 
 ## Prerequisites
 
-Ensure you have the following installed:
+| Tool | Minimum Version | Purpose |
+|---|---|---|
+| .NET SDK | 8.0 | Backend API |
+| Node.js | 18 | Frontend build and dev server |
+| Ollama | Current stable | Local LLM runtime |
 
-| Tool | Version | Download |
-|------|---------|----------|
-| .NET SDK | 8.0+ | [dotnet.microsoft.com](https://dotnet.microsoft.com/download) |
-| Node.js | 18+ | [nodejs.org](https://nodejs.org) |
-| Ollama | latest | [ollama.com](https://ollama.com) |
+## Standard Local Endpoints
 
-## Step 1: Clone the Repository
+| Service | URL |
+|---|---|
+| Frontend | `http://localhost:5173` |
+| Backend API | `http://localhost:5000/api` |
+| Swagger UI | `http://localhost:5000/swagger` |
+| Ollama | `http://localhost:11434` |
+
+## 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/SafeQueryAI.git
+git clone https://github.com/JYOshiro/SafeQueryAI.git
 cd SafeQueryAI
 ```
 
-## Step 2: Set Up Ollama
+## 2. Start Ollama and Pull Models
 
-SafeQueryAI requires Ollama running with two models:
+```bash
+ollama serve
+```
 
-### Install Ollama
-
-Download from [ollama.com](https://ollama.com) and follow installation steps for your OS.
-
-### Pull Required Models
+In a second terminal:
 
 ```bash
 ollama pull nomic-embed-text
 ollama pull llama3.2
 ```
 
-### Start Ollama Service
-
-```bash
-ollama serve
-```
-
-Ollama will be available at `http://localhost:11434`
-
-## Step 3: Backend Setup
+## 3. Start Backend
 
 ```bash
 cd backend
-
-# Restore NuGet packages
 dotnet restore
-
-# Build the project
-dotnet build
-
-# Run the API
 dotnet run
 ```
 
-The API will be available at `https://localhost:7180` (or as configured in `appsettings.json`)
+Backend should start on `http://localhost:5000`.
 
-## Step 4: Frontend Setup
+## 4. Start Frontend
 
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
-
-# Start the development server
 npm run dev
 ```
 
-The frontend will typically be available at `http://localhost:5173`
+Frontend should start on `http://localhost:5173`.
 
-## Step 5: Verify Installation
+## 5. Validate End-to-End Flow
 
-1. **Open the browser**: Navigate to `http://localhost:5173`
-2. **Upload a document**: Try uploading a PDF or CSV file
-3. **Ask a question**: Submit a natural-language question about the document
-4. **Review the answer**: The AI should provide an answer grounded in your document
+1. Open `http://localhost:5173`.
+2. Create a session.
+3. Upload a `.pdf` or `.csv` file (up to `20 MB`).
+4. Ask a question and confirm an answer is returned.
+5. Clear the session and confirm files are removed from the session list.
+
+## Default Runtime Constraints
+
+| Setting | Default |
+|---|---|
+| Session timeout | `60` minutes of inactivity |
+| Supported file types | `.pdf`, `.csv` |
+| Configured max upload size | `20 MB` |
+| Request hard limit | `25 MB` |
 
 ## Troubleshooting
 
-### Ollama Connection Failed
-- Ensure Ollama is running: `ollama serve`
-- Check if models are available: `ollama list`
-- Verify the API endpoint in backend configuration
+### Backend cannot reach Ollama
 
-### Frontend Cannot Connect to Backend
-- Check `frontend/src/services/api.ts` for the correct backend URL
-- Ensure CORS is properly configured in backend
-- Check browser console for detailed error messages
+- Confirm Ollama is running: `ollama serve`.
+- Confirm model availability: `ollama list`.
+- Confirm `Ollama:BaseUrl` in backend config is `http://localhost:11434`.
 
-### Models Not Found
-- Verify models are pulled: `ollama list`
-- Check that Ollama has been running long enough for models to load
+### Frontend cannot reach backend
 
-## What's Next?
+- Confirm backend is running on `http://localhost:5000`.
+- Confirm frontend dev server is running on `http://localhost:5173`.
+- Confirm Vite proxy target in `frontend/vite.config.ts` points to `http://localhost:5000`.
 
-- [Read the Architecture](architecture.md) to understand how SafeQueryAI works
-- [Check the API Documentation](api-documentation.md) for available endpoints
-- [Review Configuration](configuration.md) for customization options
+### Upload rejected
+
+- Confirm file extension is `.pdf` or `.csv`.
+- Confirm file size does not exceed `20 MB`.
+
+### [REVIEW REQUIRED: verify backend URL consistency]
+
+If your machine uses a different ASP.NET local URL, update local run settings and align references across this documentation set.
+
+## Next Reading
+
+- [Business Overview](business-overview.md)
+- [Architecture](architecture.md)
+- [Security & Privacy](security-privacy.md)
+- [API Reference](api-documentation.md)

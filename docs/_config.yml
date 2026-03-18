@@ -10,15 +10,15 @@ theme: jekyll-theme-minimal
 # Navigation
 header_pages:
   - index.md
+  - business-overview.md
   - getting-started.md
-  - implementation-plan.md
-  - testing.md
   - architecture.md
+  - security-privacy.md
   - api-documentation.md
   - frontend-guide.md
-  - configuration.md
+  - testing.md
   - deployment.md
-  - development.md
+  - roadmap.md
   - faq.md
 
 # SEO and social

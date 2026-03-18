@@ -5,7 +5,13 @@ title: Frontend Guide
 
 # Frontend Guide
 
-The SafeQueryAI frontend is a modern React 19 application built with TypeScript and Vite. This guide covers the component structure, key patterns, and customization options.
+The SafeQueryAI frontend is a React + TypeScript application designed for clear session-based workflows: upload, ask, review, clear.
+
+## Objectives
+
+- Provide an understandable UI for document question-answering.
+- Keep privacy-first architecture visible in user interactions.
+- Integrate reliably with backend REST and SSE endpoints.
 
 ## Project Structure
 
@@ -13,42 +19,50 @@ The SafeQueryAI frontend is a modern React 19 application built with TypeScript 
 frontend/
 ├── src/
 │   ├── components/
-│   │   ├── App.tsx                 # Root component
-│   │   ├── QuestionForm.tsx        # Question input form
-│   │   ├── FileUploadPanel.tsx     # File upload
-│   │   ├── AnswerPanel.tsx         # Answer display
-│   │   ├── SessionInfo.tsx         # Session metadata
-│   │   ├── UploadedFileList.tsx    # Files listing
-│   │   └── PrivacyBanner.tsx       # Privacy notice
+│   │   ├── App.tsx
+│   │   ├── QuestionForm.tsx
+│   │   ├── FileUploadPanel.tsx
+│   │   ├── AnswerPanel.tsx
+│   │   ├── SessionInfo.tsx
+│   │   ├── UploadedFileList.tsx
+│   │   └── PrivacyBanner.tsx
 │   ├── services/
-│   │   └── api.ts                  # API client
+│   │   └── api.ts
 │   ├── types/
-│   │   └── api.ts                  # TypeScript interfaces
+│   │   └── api.ts
 │   ├── styles/
-│   │   ├── app.css                 # Global styles
-│   │   └── index.css               # Base styles
-│   ├── App.css                     # App component styles
-│   ├── index.css                   # Root styles
-│   ├── main.tsx                    # Entry point
-│   └── App.tsx                     # Main app
-├── index.html                      # HTML template
-├── vite.config.ts                  # Vite configuration
-├── tsconfig.json                   # TypeScript config
-└── package.json                    # Dependencies
+│   │   ├── app.css
+│   │   └── index.css
+│   ├── App.css
+│   ├── index.css
+│   ├── main.tsx
+│   └── App.tsx
+├── index.html
+├── vite.config.ts
+├── tsconfig.json
+└── package.json
 ```
 
-## Key Components
+## Runtime Integration
+
+| Item | Value |
+|---|---|
+| Frontend local URL | `http://localhost:5173` |
+| Backend API base | `/api` (proxied in Vite) |
+| Vite proxy target | `http://localhost:5000` |
+
+Environment variable in use:
+
+- `VITE_API_BASE_URL` (default `/api`)
+
+## Core Components
 
 ### App.tsx
-The root component managing overall application state and layout.
 
-**State**:
-- `sessionId`: Current session UUID
-- `uploadedFiles`: List of uploaded files
-- `isLoading`: Loading indicator
+Coordinates session creation, file upload flow, and question-answer interactions.
 
 ### QuestionForm.tsx
-Handles question input and submission.
+Collects natural-language questions and controls submit availability.
 
 **Props**:
 ```typescript
@@ -59,95 +73,59 @@ interface QuestionFormProps {
 }
 ```
 
-**Features**:
-- Text input with character counter
-- SSL check for disabled state
-- Enter to submit (Ctrl+Enter for new line)
+Expected behavior:
+
+- Submit disabled when no session files are available.
+- Submit disabled while active question processing is in progress.
+- Whitespace-only questions are rejected.
 
 ### FileUploadPanel.tsx
-Drag-and-drop file upload interface.
+Handles PDF/CSV file selection and upload progress states.
 
-**Supported Formats**:
-- PDF files (`.pdf`)
-- CSV files (`.csv`)
+Supported formats and limits:
 
-**Max Size**: 50 MB per file
+- `.pdf`, `.csv`
+- Configured max: `20 MB`
 
 ### AnswerPanel.tsx
-Displays streaming answers in real-time.
+Displays returned answers and confidence/evidence context.
 
-**Features**:
-- Streaming text display
-- Loading animation
-- Error boundary
-- Copy answer button
+## API Layer Behavior
 
-## API Client
+The frontend API client in `src/services/api.ts` provides:
 
-The `services/api.ts` file provides typed API methods:
+- Session create/get/clear methods.
+- File list/upload methods.
+- Question ask (standard response) and ask stream (SSE) methods.
+- Shared error handling for non-2xx responses.
 
-```typescript
-export const api = {
-  sessions: {
-    create(): Promise<CreateSessionResponse>,
-    get(sessionId: string): Promise<SessionInfo>,
-    delete(sessionId: string): Promise<ClearSessionResponse>
-  },
-  files: {
-    upload(sessionId: string, file: File): Promise<FileUploadResponse>,
-    list(sessionId: string): Promise<SessionFilesResponse>
-  },
-  questions: {
-    ask(sessionId: string, question: string): AsyncIterable<AnswerStreamChunk>
-  }
-};
-```
+## UX and Messaging Guidelines
 
-### Example Usage
+Use consistent wording in UI and docs:
 
-```typescript
-import { api } from './services/api';
+- document question-answering
+- session-based processing
+- temporary storage
+- local LLM runtime
+- privacy-first architecture
 
-// Create session
-const { sessionId } = await api.sessions.create();
+Avoid implying:
 
-// Upload file
-const file = fileInput.files[0];
-await api.files.upload(sessionId, file);
+- cloud upload
+- persistent document history
+- external analytics telemetry
 
-// Ask question with streaming
-for await (const chunk of api.questions.ask(sessionId, question)) {
-  if (chunk.status === 'complete') {
-    console.log('Answer complete');
-  } else {
-    console.log(chunk.chunk); // Append to answer text
-  }
-}
-```
+## Styling and Accessibility
 
-## Styling Guide
+Baseline expectations:
 
-The frontend uses a minimal CSS-in-JS approach with separate stylesheets.
+- Semantic elements for forms, actions, and content regions.
+- Keyboard-friendly interactions for upload and question submission.
+- Readable contrast and spacing for long-form answers.
 
-### Color Palette
-
-|  | Usage |
-|--|-------|
-| **Primary** | Buttons, links (configure in `app.css`) |
-| **Text** | Body text, headings |
-| **Border** | Input borders, separators |
-| **Background** | Page background, panels |
-
-### Adding Styles
-
-1. **Global styles**: Update `styles/app.css`
-2. **Component styles**: Add CSS modules or inline styles in component file
-3. **Responsive**: Use CSS media queries for mobile/desktop
-
-Example:
+Example responsive pattern:
 
 ```css
-/* app.css */
 .question-form {
   display: flex;
   gap: 10px;
@@ -161,42 +139,14 @@ Example:
 }
 ```
 
-## TypeScript Types
-
-All API responses are typed in `types/api.ts`:
-
-```typescript
-export interface CreateSessionResponse {
-  sessionId: string;
-  createdAt: string;
-  expiresAt: string;
-}
-
-export interface AnswerStreamChunk {
-  chunk?: string;
-  status: 'generating' | 'complete' | 'error';
-  error?: string;
-}
-```
-
-Use these types to keep your components type-safe.
-
-## State Management
-
-Currently using React's built-in `useState`. For larger apps, consider:
-
-- Redux for centralized state
-- Zustand for minimal boilerplate
-- Jotai for atomic state
-
-## Development
+## Development Commands
 
 ### Environment Variables
 
-Create a `.env` file in the `frontend` directory:
+Use `.env` or `.env.local` in the frontend directory:
 
 ```env
-VITE_API_URL=http://localhost:7180/api
+VITE_API_BASE_URL=/api
 ```
 
 ### Build Commands
@@ -215,27 +165,15 @@ npm run preview
 npm run lint
 ```
 
-## Performance Optimization
+## Customization Notes
 
-- **Code splitting**: Components are lazy-loaded where possible
-- **Image optimization**: Use `<img loading="lazy">`
-- **Debouncing**: Question input is debounced to prevent rapid submissions
-- **Streaming**: Answers display incrementally as received
+### Adjust API base URL
 
-## Accessibility
+Set `VITE_API_BASE_URL` to another value only when proxy behavior changes.
 
-- Semantic HTML (`<button>`, `<form>`, etc.)
-- ARIA labels for screen readers
-- Keyboard navigation support (Tab, Enter, Escape)
-- Color contrast meets WCAG AA standard
+### Update theme variables
 
-## Customization Tips
-
-### Change API Endpoint
-Edit `services/api.ts` or set `VITE_API_URL` environment variable.
-
-### Customize Colors
-Update CSS variables in `styles/app.css`:
+Use shared variables in stylesheet files:
 
 ```css
 :root {
@@ -245,20 +183,6 @@ Update CSS variables in `styles/app.css`:
 }
 ```
 
-### Add a New Component
-
-1. Create component file in `components/`
-2. Define props interface in file
-3. Import and use in `App.tsx`
-4. Add styles to `app.css`
-
-### Change Branding
-
-Update these files:
-- `index.html`: Title and favicon
-- `src/components/App.tsx`: Logo/header
-- `styles/app.css`: Colors and fonts
-
 ## Browser Support
 
 - Chrome/Edge 90+
@@ -267,15 +191,18 @@ Update these files:
 
 ## Troubleshooting
 
-**Backend connection fails**
-- Ensure backend is running on configured URL
-- Check CORS configuration in backend
+Backend connection fails:
 
-**Styling looks wrong**
-- Clear browser cache (Ctrl+Shift+Delete)
-- Check CSS file paths
+- Ensure backend is running on `http://localhost:5000`.
+- Confirm Vite proxy target has not changed.
 
-**Questions not streaming**
-- Check browser console for errors
-- Ensure Ollama is running
-- Verify backend logs
+Unexpected upload validation behavior:
+
+- Confirm file type and size align with backend rules.
+- Confirm frontend validation messages match backend error responses.
+
+Questions not streaming:
+
+- Confirm stream endpoint `/api/sessions/{sessionId}/questions/stream` is reachable.
+- Confirm Ollama is running and models are loaded.
+- Review browser console and backend logs.
