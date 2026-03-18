@@ -12,6 +12,7 @@ Welcome to the SafeQueryAI documentation site. SafeQueryAI is a privacy-first, l
 - **New to SafeQueryAI?** Start with [Getting Started](getting-started.md)
 - **Want to understand the system?** Read about the [Architecture](architecture.md)
 - **Need delivery roadmap?** Review the [Implementation Plan](implementation-plan.md)
+- **Looking for test coverage?** Read the [Testing Guide](testing.md)
 - **Building an integration?** Check the [API Documentation](api-documentation.md)
 - **Customizing the UI?** See the [Frontend Guide](frontend-guide.md)
 
@@ -21,6 +22,7 @@ Welcome to the SafeQueryAI documentation site. SafeQueryAI is a privacy-first, l
 |---------|---------|
 | [Getting Started](getting-started.md) | Installation, prerequisites, running locally |
 | [Implementation Plan](implementation-plan.md) | Business roadmap, delivery phases, acceptance criteria |
+| [Testing Guide](testing.md) | Unit test suites, how to run tests, coverage targets |
 | [Architecture](architecture.md) | System design, RAG pipeline, components overview |
 | [API Documentation](api-documentation.md) | Backend endpoints, request/response formats |
 | [Frontend Guide](frontend-guide.md) | React components, styling, state management |

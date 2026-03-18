@@ -133,16 +133,16 @@ This implementation plan translates the architecture review into an execution ro
 
 ## Testing Strategy
 
-- Unit tests:
-  - CSV parsing edge cases.
-  - Confidence scoring logic.
-  - Session guardrail validation.
-- Integration tests:
-  - SSE lifecycle: start, token flow, cancellation, and error paths.
-  - Concurrent upload/ask/clear operations.
-- Performance tests:
-  - Retrieval latency with increasing chunk counts.
-  - Upload-to-ready timing with asynchronous indexing.
+Unit and integration testing is now implemented. Full details, run commands, and coverage targets are in the [Testing Guide](testing.md).
+
+**Current coverage (as at test implementation):**
+- Backend: 54 unit tests across 6 service classes (SessionService, VectorStoreService, QuestionAnsweringService, DocumentIndexingService, FileStorageService, TextExtractionService)
+- Frontend: 32 unit tests across 4 files (QuestionForm, FileUploadPanel, api service layer, App integration)
+
+Remaining test work per phase:
+- Unit tests: CSV parsing edge cases, confidence scoring logic, session guardrail validation.
+- Integration tests: SSE lifecycle (start, token flow, cancellation, error paths), concurrent upload/ask/clear operations.
+- Performance tests: retrieval latency with increasing chunk counts, upload-to-ready timing with asynchronous indexing.
 
 ## Dependencies and Assumptions
 

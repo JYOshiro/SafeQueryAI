@@ -12,6 +12,7 @@ header_pages:
   - index.md
   - getting-started.md
   - implementation-plan.md
+  - testing.md
   - architecture.md
   - api-documentation.md
   - frontend-guide.md
