@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
 using SafeQueryAI.Api.Contracts;
 using SafeQueryAI.Api.Services.Interfaces;
 
@@ -40,5 +41,59 @@ public class QuestionsController : ControllerBase
             request.Question, sessionId, session.Files, cancellationToken);
 
         return Ok(response);
+    }
+
+    /// <summary>
+    /// Streams the answer token-by-token as Server-Sent Events (text/event-stream).
+    /// Each SSE message is a JSON object with either <c>{"type":"token","content":"..."}</c>
+    /// or a final <c>{"type":"done","question":"...","hasConfidentAnswer":bool,"evidence":[...]}</c> event.
+    /// </summary>
+    [HttpPost("stream")]
+    public async Task AskQuestionStream(
+        string sessionId,
+        [FromBody] AskQuestionRequest request,
+        CancellationToken cancellationToken)
+    {
+        var session = _sessionService.GetSession(sessionId);
+        if (session is null)
+        {
+            Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(request?.Question))
+        {
+            Response.StatusCode = StatusCodes.Status400BadRequest;
+            return;
+        }
+
+        Response.ContentType = "text/event-stream";
+        Response.Headers.CacheControl = "no-cache";
+        Response.Headers.Append("X-Accel-Buffering", "no");
+
+        await foreach (var chunk in _questionAnswering.StreamAnswerAsync(
+            request.Question, sessionId, session.Files, cancellationToken))
+        {
+            string eventData;
+            if (chunk.Token is not null)
+            {
+                eventData = JsonSerializer.Serialize(new { type = "token", content = chunk.Token });
+            }
+            else if (chunk.Final is not null)
+            {
+                var f = chunk.Final;
+                eventData = JsonSerializer.Serialize(new
+                {
+                    type = "done",
+                    question = f.Question,
+                    hasConfidentAnswer = f.HasConfidentAnswer,
+                    evidence = f.Evidence
+                });
+            }
+            else continue;
+
+            await Response.WriteAsync($"data: {eventData}\n\n", cancellationToken);
+            await Response.Body.FlushAsync(cancellationToken);
+        }
     }
 }

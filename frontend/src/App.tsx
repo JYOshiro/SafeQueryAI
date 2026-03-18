@@ -21,11 +21,13 @@ export default function App() {
   const [filesLoading, setFilesLoading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ phase: 'uploading' | 'analyzing'; percent: number } | null>(null);
 
   // ─── Question/answer state ─────────────────────────────────────────────────
   const [answerResult, setAnswerResult] = useState<AskQuestionResponse | null>(null);
   const [isAsking, setIsAsking] = useState(false);
   const [answerError, setAnswerError] = useState<string | null>(null);
+  const [streamingAnswer, setStreamingAnswer] = useState('');
 
   // ─── Clear session state ──────────────────────────────────────────────────
   const [isClearing, setIsClearing] = useState(false);
@@ -74,10 +76,13 @@ export default function App() {
     if (!sessionId) return;
     setIsUploading(true);
     setUploadError(null);
+    setUploadProgress(null);
 
     try {
       for (const file of selectedFiles) {
-        await api.uploadFile(sessionId, file);
+        await api.uploadFileWithProgress(sessionId, file, (phase, percent) => {
+          setUploadProgress({ phase, percent });
+        });
       }
       await refreshFiles(sessionId);
     } catch (err: unknown) {
@@ -85,6 +90,7 @@ export default function App() {
       setUploadError(message);
     } finally {
       setIsUploading(false);
+      setUploadProgress(null);
     }
   }
 
@@ -94,10 +100,21 @@ export default function App() {
     setIsAsking(true);
     setAnswerError(null);
     setAnswerResult(null);
+    setStreamingAnswer('');
 
+    let accumulated = '';
     try {
-      const result = await api.askQuestion(sessionId, question);
-      setAnswerResult(result);
+      const meta = await api.askQuestionStream(sessionId, question, (token) => {
+        accumulated += token;
+        setStreamingAnswer(accumulated);
+      });
+      setAnswerResult({
+        question: meta.question,
+        answer: accumulated,
+        hasConfidentAnswer: meta.hasConfidentAnswer,
+        evidence: meta.evidence,
+      });
+      setStreamingAnswer('');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to get an answer.';
       setAnswerError(message);
@@ -179,6 +196,7 @@ export default function App() {
             onFilesUploaded={handleFilesUploaded}
             isUploading={isUploading}
             uploadError={uploadError}
+            uploadProgress={uploadProgress}
           />
           <UploadedFileList files={files} isLoading={filesLoading} />
         </div>
@@ -193,6 +211,7 @@ export default function App() {
             result={answerResult}
             isLoading={isAsking}
             error={answerError}
+            streamingText={streamingAnswer}
           />
         </div>
       </main>

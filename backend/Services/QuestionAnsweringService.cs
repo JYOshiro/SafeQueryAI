@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using SafeQueryAI.Api.Contracts;
 using SafeQueryAI.Api.Models;
 using SafeQueryAI.Api.Services.Interfaces;
@@ -89,7 +90,75 @@ public class QuestionAnsweringService : IQuestionAnsweringService
         return KeywordAnswer(question, files);
     }
 
-    // ── Keyword matching (fallback) ───────────────────────────────────────────
+    // ── Streaming answer ──────────────────────────────────────────────────────
+
+    public async IAsyncEnumerable<AnswerStreamChunk> StreamAnswerAsync(
+        string question,
+        string sessionId,
+        IReadOnlyList<StoredFileInfo> files,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        if (files.Count == 0)
+        {
+            yield return new AnswerStreamChunk(null, new AskQuestionResponse(
+                Question: question,
+                Answer: "No files have been uploaded to this session. Please upload a PDF or CSV file first.",
+                HasConfidentAnswer: false,
+                Evidence: new List<EvidenceItem>()));
+            yield break;
+        }
+
+        // Attempt RAG: embed question + retrieve chunks (non-streaming part)
+        IReadOnlyList<DocumentChunk>? relevantChunks = null;
+        try
+        {
+            var queryEmbedding = await _ollama.GetEmbeddingAsync(question, cancellationToken);
+            relevantChunks = _vectorStore.Search(sessionId, queryEmbedding, TopK);
+            if (relevantChunks.Count == 0)
+                _logger.LogWarning(
+                    "No indexed chunks for session {SessionId}. Falling back to keyword search.", sessionId);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            _logger.LogWarning(ex, "Ollama unavailable. Falling back to keyword search.");
+        }
+
+        if (relevantChunks is { Count: > 0 })
+        {
+            var contextItems = relevantChunks.Select(c => $"[From: {c.FileName}]\n{c.Text}");
+
+            // Stream LLM tokens
+            await foreach (var token in _ollama.GenerateAnswerStreamAsync(question, contextItems, cancellationToken))
+            {
+                yield return new AnswerStreamChunk(Token: token, Final: null);
+            }
+
+            var evidence = relevantChunks
+                .GroupBy(c => c.FileName)
+                .Select(g => new EvidenceItem(g.Key, TrimSnippet(g.First().Text)))
+                .Take(3)
+                .ToList();
+
+            // Final event with metadata (answer text was streamed as tokens)
+            yield return new AnswerStreamChunk(null, new AskQuestionResponse(
+                Question: question,
+                Answer: string.Empty,
+                HasConfidentAnswer: true,
+                Evidence: evidence));
+            yield break;
+        }
+
+        // Keyword fallback — surface as a single token + done event
+        var fallback = KeywordAnswer(question, files);
+        yield return new AnswerStreamChunk(Token: fallback.Answer, Final: null);
+        yield return new AnswerStreamChunk(null, new AskQuestionResponse(
+            Question: question,
+            Answer: fallback.Answer,
+            HasConfidentAnswer: fallback.HasConfidentAnswer,
+            Evidence: fallback.Evidence));
+    }
+
+    // ── Keyword-matching fallback ─────────────────────────────────────────
 
     private static AskQuestionResponse KeywordAnswer(string question, IReadOnlyList<StoredFileInfo> files)
     {

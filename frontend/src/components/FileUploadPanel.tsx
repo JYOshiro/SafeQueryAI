@@ -1,9 +1,16 @@
 import { useRef, useState } from 'react';
 
+interface UploadProgress {
+  phase: 'uploading' | 'analyzing';
+  /** 0–100 bytes-transferred percentage (only meaningful during 'uploading' phase) */
+  percent: number;
+}
+
 interface FileUploadPanelProps {
   onFilesUploaded: (files: File[]) => Promise<void>;
   isUploading: boolean;
   uploadError: string | null;
+  uploadProgress: UploadProgress | null;
 }
 
 const ACCEPTED_TYPES = '.pdf,.csv';
@@ -13,6 +20,7 @@ export default function FileUploadPanel({
   onFilesUploaded,
   isUploading,
   uploadError,
+  uploadProgress,
 }: FileUploadPanelProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -37,14 +45,16 @@ export default function FileUploadPanel({
   async function handleFiles(files: FileList | null) {
     const result = validateFiles(files);
     if (typeof result === 'string') {
-      // Let parent display via uploadError — trigger by passing empty array and the error
-      // We surface it by calling onFilesUploaded with an empty array and catching the error
-      // For simplicity, use a validation-only approach:
       alert(result);
       return;
     }
     await onFilesUploaded(result);
   }
+
+  const isAnalyzing = uploadProgress?.phase === 'analyzing';
+  const uploadFillPct = uploadProgress?.phase === 'uploading'
+    ? Math.min(uploadProgress.percent, 100)
+    : null;
 
   return (
     <div className="upload-panel">
@@ -52,26 +62,43 @@ export default function FileUploadPanel({
       <p className="panel-subtitle">Supported formats: PDF (text-based), CSV</p>
 
       <div
-        className={`drop-zone ${dragOver ? 'drop-zone--active' : ''}`}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        className={`drop-zone ${dragOver ? 'drop-zone--active' : ''} ${isUploading ? 'drop-zone--busy' : ''}`}
+        onDragOver={(e) => { e.preventDefault(); if (!isUploading) setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={(e) => {
           e.preventDefault();
           setDragOver(false);
-          handleFiles(e.dataTransfer.files);
+          if (!isUploading) handleFiles(e.dataTransfer.files);
         }}
-        onClick={() => inputRef.current?.click()}
+        onClick={() => { if (!isUploading) inputRef.current?.click(); }}
         role="button"
         tabIndex={0}
         aria-label="Upload files — click or drag and drop"
-        onKeyDown={(e) => e.key === 'Enter' && inputRef.current?.click()}
+        onKeyDown={(e) => e.key === 'Enter' && !isUploading && inputRef.current?.click()}
       >
         <span className="drop-zone-icon" aria-hidden="true">📄</span>
         <p className="drop-zone-text">
-          {isUploading ? 'Uploading…' : 'Click or drag & drop files here'}
+          {isUploading ? (isAnalyzing ? 'Analysing with local LLM…' : 'Uploading…') : 'Click or drag & drop files here'}
         </p>
         <p className="drop-zone-hint">Max {MAX_FILE_SIZE_MB} MB per file</p>
       </div>
+
+      {isUploading && uploadProgress && (
+        <div className="upload-progress" role="status" aria-live="polite">
+          <div className="upload-progress-label">
+            <span>{isAnalyzing ? '🤖 Local LLM is indexing the document…' : '📤 Uploading file…'}</span>
+            {!isAnalyzing && uploadFillPct !== null && (
+              <span>{uploadFillPct}%</span>
+            )}
+          </div>
+          <div className="progress-bar-track" aria-hidden="true">
+            <div
+              className={`progress-bar-fill${isAnalyzing ? ' progress-bar-fill--analyzing' : ''}`}
+              style={{ width: isAnalyzing ? '100%' : `${uploadFillPct}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       <input
         ref={inputRef}

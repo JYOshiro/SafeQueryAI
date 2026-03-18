@@ -15,4 +15,15 @@ public interface IQuestionAnsweringService
         string sessionId,
         IReadOnlyList<StoredFileInfo> files,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Streams the answer token-by-token. Yields <see cref="AnswerStreamChunk"/> items where
+    /// each item is either a partial text token or the final metadata event.
+    /// Falls back to keyword matching (single token) when Ollama is unavailable.
+    /// </summary>
+    IAsyncEnumerable<AnswerStreamChunk> StreamAnswerAsync(
+        string question,
+        string sessionId,
+        IReadOnlyList<StoredFileInfo> files,
+        CancellationToken cancellationToken = default);
 }

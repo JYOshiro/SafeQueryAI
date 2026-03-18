@@ -1,4 +1,7 @@
 using System.Net.Http.Json;
+using System.Runtime.CompilerServices;
+using System.Text;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using SafeQueryAI.Api.Services.Interfaces;
 
@@ -68,6 +71,64 @@ public class OllamaService : IOllamaService
         return result?.Message?.Content ?? "Unable to generate an answer from the model.";
     }
 
+    public async IAsyncEnumerable<string> GenerateAnswerStreamAsync(
+        string question,
+        IEnumerable<string> contextChunks,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var context = string.Join("\n\n---\n\n", contextChunks);
+
+        var systemPrompt =
+            "You are a precise document analysis assistant. " +
+            "Answer the user's question using ONLY the document excerpts provided below. " +
+            "If the answer cannot be found in the excerpts, say so clearly and do not speculate. " +
+            "Do not use any knowledge outside of the provided context.\n\n" +
+            "Document excerpts:\n" + context;
+
+        var requestBody = JsonSerializer.Serialize(new
+        {
+            model = _generationModel,
+            messages = new[]
+            {
+                new { role = "system", content = systemPrompt },
+                new { role = "user", content = question }
+            },
+            stream = true
+        });
+
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "/api/chat")
+        {
+            Content = new StringContent(requestBody, Encoding.UTF8, "application/json")
+        };
+
+        using var response = await _httpClient.SendAsync(
+            httpRequest,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        using var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(responseStream);
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            var line = await reader.ReadLineAsync(cancellationToken);
+            if (line is null) break;
+            if (string.IsNullOrWhiteSpace(line)) continue;
+
+            OllamaChatStreamChunk? chunk;
+            try { chunk = JsonSerializer.Deserialize<OllamaChatStreamChunk>(line); }
+            catch (JsonException) { continue; }
+
+            if (chunk is null) continue;
+            if (chunk.Done) break;
+
+            var token = chunk.Message?.Content;
+            if (!string.IsNullOrEmpty(token))
+                yield return token;
+        }
+    }
+
     // ---- Local response DTOs ------------------------------------------------
 
     private record OllamaEmbedResponse(
@@ -79,4 +140,8 @@ public class OllamaService : IOllamaService
 
     private record OllamaChatResponse(
         [property: JsonPropertyName("message")] OllamaChatMessage? Message);
+
+    private record OllamaChatStreamChunk(
+        [property: JsonPropertyName("message")] OllamaChatMessage? Message,
+        [property: JsonPropertyName("done")] bool Done);
 }

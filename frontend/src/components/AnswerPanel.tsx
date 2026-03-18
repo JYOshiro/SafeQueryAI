@@ -4,13 +4,33 @@ interface AnswerPanelProps {
   result: AskQuestionResponse | null;
   isLoading: boolean;
   error: string | null;
+  streamingText?: string;
 }
 
-export default function AnswerPanel({ result, isLoading, error }: AnswerPanelProps) {
+export default function AnswerPanel({ result, isLoading, error, streamingText }: AnswerPanelProps) {
+  // Streaming: we have tokens arriving but no final result yet
+  if (isLoading && streamingText) {
+    return (
+      <div className="answer-panel answer-panel--streaming" aria-live="polite">
+        <h2 className="panel-title">Answer</h2>
+        <div className="answer-body">
+          <p className="answer-streaming">
+            {streamingText}<span className="answer-cursor" aria-hidden="true" />
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="answer-panel answer-panel--loading" aria-live="polite">
-        <p className="loading-text">Searching uploaded files…</p>
+        <div className="thinking-indicator">
+          <span>🤖 Thinking</span>
+          <span className="thinking-dots" aria-hidden="true">
+            <span>.</span><span>.</span><span>.</span>
+          </span>
+        </div>
       </div>
     );
   }
